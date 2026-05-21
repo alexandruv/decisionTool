@@ -6,6 +6,7 @@ import {
   buildDecisionResult,
   formatStatusLabel,
 } from "@/domain/scoring/engine";
+import { buildDecisionMarkdown } from "@/domain/export/decisionMarkdown";
 import {
   type Constraint,
   type Decision,
@@ -336,6 +337,25 @@ export default function Home() {
     clearStorageMessage();
   }
 
+  function handleExportMarkdown() {
+    const markdown = buildDecisionMarkdown(decision, result);
+    const safeTitle = decision.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const fileName = `${safeTitle || "decision"}-${new Date().toISOString().slice(0, 10)}.md`;
+    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    setStorageMessage("Markdown export downloaded.");
+    clearStorageMessage();
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -398,6 +418,13 @@ export default function Home() {
             className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
           >
             New Draft
+          </button>
+          <button
+            type="button"
+            onClick={handleExportMarkdown}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+          >
+            Export Markdown
           </button>
           <p className="text-sm text-zinc-600">Draft ID: {draftId}</p>
           {storageMessage && (
