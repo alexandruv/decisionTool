@@ -1,26 +1,116 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f5f2;
+  --foreground: #1f2937;
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --stroke: #d9ded8;
+  --muted: #5f6b7a;
+  --accent: #4d5f73;
+  --accent-soft: #dbe8f4;
+  --glow-a: rgba(245, 210, 213, 0.45);
+  --glow-b: rgba(198, 224, 238, 0.45);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 15% 10%, var(--glow-a), transparent 28%),
+    radial-gradient(circle at 90% 18%, var(--glow-b), transparent 30%),
+    linear-gradient(165deg, #f8f7f5 0%, #f2f4f1 58%, #edf2f7 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-fraunces), serif;
+  letter-spacing: -0.02em;
+}
+
+.bg-white {
+  background-color: var(--surface) !important;
+  backdrop-filter: blur(10px);
+}
+
+.bg-zinc-50 {
+  background-color: var(--surface-strong) !important;
+}
+
+.border-zinc-200,
+.border-zinc-300,
+.border-zinc-100 {
+  border-color: var(--stroke) !important;
+}
+
+.text-zinc-900 {
+  color: var(--foreground) !important;
+}
+
+.text-zinc-700,
+.text-zinc-600,
+.text-zinc-500 {
+  color: var(--muted) !important;
+}
+
+.bg-zinc-900 {
+  background-color: var(--accent) !important;
+}
+
+.shadow-sm {
+  box-shadow:
+    0 12px 36px -26px rgba(33, 53, 73, 0.35),
+    0 4px 16px -14px rgba(33, 53, 73, 0.24) !important;
+}
+
+input,
+textarea,
+select {
+  background: rgba(255, 255, 255, 0.7);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #b5c7d9 !important;
+  box-shadow: 0 0 0 3px rgba(189, 214, 236, 0.45);
+  outline: none;
+}
+
+button {
+  transition: transform 140ms ease, filter 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: saturate(1.05);
+}
+
+button:disabled {
+  opacity: 0.55;
+}
+
+section {
+  animation: soft-rise 380ms ease both;
+}
+
+@keyframes soft-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

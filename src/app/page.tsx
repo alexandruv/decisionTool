@@ -459,12 +459,24 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+    <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+      <div
+        className="pointer-events-none absolute -left-24 top-8 h-56 w-56 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(248,206,213,0.55) 0%, rgba(248,206,213,0) 72%)",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute -right-16 top-64 h-52 w-52 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(194,226,242,0.5) 0%, rgba(194,226,242,0) 70%)",
+        }}
+      />
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
           Gravity-Certainty Engine
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-2 text-4xl font-semibold text-zinc-900 sm:text-5xl">
           Guided Decision Builder
         </h1>
         <p className="mt-2 text-zinc-600">
@@ -1146,7 +1158,7 @@ export default function Home() {
         </section>
       )}
 
-      <section className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <section className="sticky bottom-4 z-10 flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
         <button
           type="button"
           onClick={() => setStep((current) => Math.max(current - 1, 0))}
