@@ -97,6 +97,51 @@ function buildCalibrationPairs(
   return pairs;
 }
 
+function interpretRobustness(robustness: number | null): {
+  label: string;
+  description: string;
+} {
+  if (robustness === null) {
+    return {
+      label: "Unavailable",
+      description: "Run analysis to estimate how stable this recommendation is.",
+    };
+  }
+
+  if (robustness >= 0.8) {
+    return {
+      label: "High stability",
+      description: "The same option stays in front in most plausible scenarios.",
+    };
+  }
+
+  if (robustness >= 0.6) {
+    return {
+      label: "Moderate stability",
+      description: "A front-runner exists, but reasonable changes can still flip the outcome.",
+    };
+  }
+
+  return {
+    label: "Low stability",
+    description: "Small assumption changes can produce a different best option.",
+  };
+}
+
+function findAlternativeLabel(
+  alternatives: Array<{ id: string; name: string }>,
+  alternativeId?: string,
+): string {
+  if (!alternativeId) {
+    return "None";
+  }
+
+  return (
+    alternatives.find((alternative) => alternative.id === alternativeId)?.name ??
+    alternativeId
+  );
+}
+
 export default function Home() {
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [savedDrafts, setSavedDrafts] = useState<DecisionDraftSnapshot[]>(() =>
@@ -361,6 +406,56 @@ export default function Home() {
       }),
     [result, simulationResult, recommendedWinThreshold, robustnessThreshold, tooCloseThreshold],
   );
+  const recommendedAlternativeLabel = useMemo(
+    () =>
+      findAlternativeLabel(
+        decision.alternatives,
+        policyRecommendation.recommendedAlternativeId,
+      ),
+    [decision.alternatives, policyRecommendation.recommendedAlternativeId],
+  );
+  const robustnessInterpretation = useMemo(
+    () => interpretRobustness(simulationResult?.robustness ?? null),
+    [simulationResult],
+  );
+  const explainabilitySummary = useMemo(() => {
+    if (!simulationResult) {
+      return {
+        leadNarrative: "Simulation is not available yet.",
+        spreadNarrative: "Confidence ranges will appear after analysis runs.",
+        watchoutsNarrative: "Potential swing factors will appear after analysis runs.",
+      };
+    }
+
+    const rankedPass = [...simulationResult.alternatives]
+      .filter((alternative) => alternative.gate === "PASS")
+      .sort((a, b) => b.winProbability - a.winProbability);
+    const top = rankedPass[0];
+    const second = rankedPass[1];
+
+    const leadNarrative = top
+      ? second
+        ? `${top.alternativeName} currently leads by ${((top.winProbability - second.winProbability) * 100).toFixed(1)} percentage points in scenario wins.`
+        : `${top.alternativeName} is the only option passing all current gates.`
+      : "No option currently passes all constraints in simulation.";
+
+    const spreadNarrative = top
+      ? top.confidenceBandLow !== null && top.confidenceBandHigh !== null
+        ? `${top.alternativeName} typically lands between ${top.confidenceBandLow.toFixed(2)} and ${top.confidenceBandHigh.toFixed(2)} across plausible futures.`
+        : `Confidence range for ${top.alternativeName} is not available.`
+      : "Confidence ranges are unavailable because no option passed gates.";
+
+    const watchoutsNarrative =
+      result.flipConditions[0] ??
+      result.nextBestData[0] ??
+      "No immediate swing trigger detected with current assumptions.";
+
+    return {
+      leadNarrative,
+      spreadNarrative,
+      watchoutsNarrative,
+    };
+  }, [result.flipConditions, result.nextBestData, simulationResult]);
 
   function updateAlternative(index: number, value: string) {
     setAlternatives((current) =>
@@ -1272,7 +1367,7 @@ export default function Home() {
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm text-zinc-500">Recommended Option</p>
               <p className="mt-1 text-xl font-semibold text-zinc-900">
-                {policyRecommendation.recommendedAlternativeId ?? "None"}
+                {recommendedAlternativeLabel}
               </p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
@@ -1287,6 +1382,12 @@ export default function Home() {
                 {simulationResult
                   ? `${(simulationResult.robustness * 100).toFixed(1)}%`
                   : "N/A"}
+              </p>
+              <p className="mt-1 text-sm font-medium text-zinc-700">
+                {robustnessInterpretation.label}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {robustnessInterpretation.description}
               </p>
             </div>
           </article>
@@ -1343,6 +1444,42 @@ export default function Home() {
             <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
               {policyRecommendation.reason}
             </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              Plain-language tip: win percentage shows how often an option comes out on top, while robustness indicates how stable that lead stays.
+            </p>
+          </article>
+
+          <article className="rounded-xl border border-zinc-200 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              Explainability Summary
+            </h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              A non-technical read of why this recommendation appears and what might change it.
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Why it leads
+                </p>
+                <p className="mt-2 text-sm text-zinc-700">{explainabilitySummary.leadNarrative}</p>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Expected range
+                </p>
+                <p className="mt-2 text-sm text-zinc-700">
+                  {explainabilitySummary.spreadNarrative}
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  What could change it
+                </p>
+                <p className="mt-2 text-sm text-zinc-700">
+                  {explainabilitySummary.watchoutsNarrative}
+                </p>
+              </div>
+            </div>
           </article>
 
           {simulationResult && (

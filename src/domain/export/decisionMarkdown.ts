@@ -46,6 +46,26 @@ export function buildDecisionMarkdown(
     `- Recommended option: ${recommendedName}`,
     `- Gate summary: ${gateSummary(result) || "No gate data"}`,
     "",
+    "## Plain-Language Summary",
+    `- What this means: ${
+      result.status === "recommended"
+        ? `You have a clear front-runner: ${recommendedName}.`
+        : result.status === "leaning"
+          ? `There is a front-runner (${recommendedName}), but confidence is moderate.`
+          : result.status === "too_close"
+            ? "The top options are too close to separate confidently."
+            : result.status === "more_data_needed"
+              ? "The result depends on high-impact factors with weak evidence."
+              : "No option is currently safe to recommend under your constraints."
+    }`,
+    `- Main upside: ${result.topReasons[0]?.description ?? "No dominant upside identified yet."}`,
+    `- Main risk: ${result.topRisks[0]?.description ?? "No dominant risk identified yet."}`,
+    `- What could change the outcome: ${
+      result.flipConditions[0] ??
+      result.nextBestData[0] ??
+      "No obvious swing trigger detected with current assumptions."
+    }`,
+    "",
     "## Alternatives",
     ...decision.alternatives.map((alternative) => `- ${alternative.name}`),
     "",

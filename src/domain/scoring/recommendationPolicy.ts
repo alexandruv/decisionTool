@@ -31,7 +31,7 @@ export function applySimulationRecommendationPolicy(
     return {
       status: baseResult.status,
       recommendedAlternativeId: baseResult.recommendedAlternativeId,
-      reason: "Simulation not available; using deterministic status.",
+      reason: "We could not run uncertainty scenarios, so this result is based only on your direct inputs.",
     };
   }
 
@@ -42,7 +42,7 @@ export function applySimulationRecommendationPolicy(
     return {
       status: baseResult.status,
       recommendedAlternativeId: baseResult.recommendedAlternativeId,
-      reason: "Hard constraints or evidence gaps take precedence over simulation confidence.",
+      reason: "A hard rule failed or important evidence is missing, so confidence scoring cannot override that.",
     };
   }
 
@@ -54,7 +54,7 @@ export function applySimulationRecommendationPolicy(
     return {
       status: "not_recommended",
       recommendedAlternativeId: undefined,
-      reason: "No alternatives pass constraint gates under current inputs.",
+      reason: "None of the options currently pass your must-have or dealbreaker rules.",
     };
   }
 
@@ -70,7 +70,7 @@ export function applySimulationRecommendationPolicy(
     return {
       status: "too_close",
       recommendedAlternativeId: topByWinProbability.alternativeId,
-      reason: `Top win probability ${(topByWinProbability.winProbability * 100).toFixed(1)}% is below too-close threshold ${(tooCloseWin * 100).toFixed(1)}%.`,
+      reason: `The leading option only wins ${(topByWinProbability.winProbability * 100).toFixed(1)}% of simulated futures, which is too close to call with confidence.`,
     };
   }
 
@@ -81,13 +81,13 @@ export function applySimulationRecommendationPolicy(
     return {
       status: "leaning",
       recommendedAlternativeId: topByWinProbability.alternativeId,
-      reason: `Confidence is moderate (win ${(topByWinProbability.winProbability * 100).toFixed(1)}%, robustness ${(simulationResult.robustness * 100).toFixed(1)}%).`,
+      reason: `There is a current front-runner, but confidence is moderate (wins ${(topByWinProbability.winProbability * 100).toFixed(1)}% of runs, robustness ${(simulationResult.robustness * 100).toFixed(1)}%).`,
     };
   }
 
   return {
     status: "recommended",
     recommendedAlternativeId: topByWinProbability.alternativeId,
-    reason: `Confidence thresholds passed (win ${(topByWinProbability.winProbability * 100).toFixed(1)}%, robustness ${(simulationResult.robustness * 100).toFixed(1)}%).`,
+    reason: `This option stays ahead across scenarios (wins ${(topByWinProbability.winProbability * 100).toFixed(1)}% of runs, robustness ${(simulationResult.robustness * 100).toFixed(1)}%).`,
   };
 }
