@@ -13,6 +13,13 @@ import {
   type Factor,
   type RiskPreference,
 } from "@/domain/types";
+import {
+  deleteDecisionDraft,
+  listDecisionDrafts,
+  loadDecisionDraft,
+  saveDecisionDraft,
+  type DecisionDraftSnapshot,
+} from "@/domain/storage/localDecisionStore";
 
 type FactorDraft = {
   description: string;
@@ -45,6 +52,15 @@ const STEP_TITLES = [
 ];
 
 export default function Home() {
+  const [draftId, setDraftId] = useState(() => crypto.randomUUID());
+  const [savedDrafts, setSavedDrafts] = useState<DecisionDraftSnapshot[]>(() =>
+    listDecisionDrafts(),
+  );
+  const [savedDraftId, setSavedDraftId] = useState(() => {
+    const drafts = listDecisionDrafts();
+    return drafts[0]?.id ?? "";
+  });
+  const [storageMessage, setStorageMessage] = useState("");
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("Should I sell my apartment now?");
   const [description, setDescription] = useState(
@@ -209,6 +225,117 @@ export default function Home() {
     );
   }
 
+  function clearStorageMessage() {
+    window.setTimeout(() => setStorageMessage(""), 2500);
+  }
+
+  function handleSaveDraft() {
+    const updated = saveDecisionDraft({
+      id: draftId,
+      title,
+      description,
+      riskPreference,
+      alternatives,
+      categories,
+      factors,
+      constraints,
+    });
+
+    setSavedDrafts(updated);
+    setSavedDraftId(draftId);
+    setStorageMessage("Draft saved locally.");
+    clearStorageMessage();
+  }
+
+  function handleLoadDraft() {
+    if (!savedDraftId) {
+      return;
+    }
+
+    const loaded = loadDecisionDraft(savedDraftId);
+
+    if (!loaded) {
+      setStorageMessage("Selected draft was not found.");
+      clearStorageMessage();
+      return;
+    }
+
+    setDraftId(loaded.id);
+    setTitle(loaded.title);
+    setDescription(loaded.description);
+    setRiskPreference(loaded.riskPreference);
+    setAlternatives(loaded.alternatives);
+    setCategories(loaded.categories);
+    setFactors(loaded.factors);
+    setConstraints(loaded.constraints);
+    setStorageMessage(`Loaded draft from ${new Date(loaded.savedAt).toLocaleString()}.`);
+    clearStorageMessage();
+  }
+
+  function handleDeleteDraft() {
+    if (!savedDraftId) {
+      return;
+    }
+
+    const updated = deleteDecisionDraft(savedDraftId);
+    setSavedDrafts(updated);
+    setSavedDraftId(updated[0]?.id ?? "");
+    setStorageMessage("Draft deleted.");
+    clearStorageMessage();
+  }
+
+  function handleNewDraft() {
+    const id = crypto.randomUUID();
+    setDraftId(id);
+    setSavedDraftId("");
+    setStep(0);
+    setTitle("Should I sell my apartment now?");
+    setDescription("I want to compare selling now versus keeping the property.");
+    setRiskPreference("balanced");
+    setAlternatives([
+      "Sell now",
+      "Keep and live in it",
+      "Keep and rent it out",
+    ]);
+    setCategories([
+      { name: "Wealth", weight: 0.25 },
+      { name: "Liquidity", weight: 0.2 },
+      { name: "Housing Security", weight: 0.25 },
+      { name: "Stress", weight: 0.15 },
+      { name: "Family Obligations", weight: 0.15 },
+    ]);
+    setFactors([
+      {
+        description: "Immediate access to sale proceeds.",
+        alternativeName: "Sell now",
+        categoryName: "Liquidity",
+        direction: "pro",
+        gravity: 4,
+        probability: 0.95,
+        evidenceConfidence: "strong",
+      },
+      {
+        description: "Need to rent before next purchase.",
+        alternativeName: "Sell now",
+        categoryName: "Housing Security",
+        direction: "con",
+        gravity: 4,
+        probability: 0.7,
+        evidenceConfidence: "some",
+      },
+    ]);
+    setConstraints([
+      {
+        description: "Must be able to repay parents.",
+        type: "must_have",
+        appliesToAlternativeName: "Sell now",
+        satisfied: true,
+      },
+    ]);
+    setStorageMessage("Started a new draft.");
+    clearStorageMessage();
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
       <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -226,6 +353,56 @@ export default function Home() {
             className="h-2 rounded-full bg-zinc-900 transition-all"
             style={{ width: `${((step + 1) / STEP_TITLES.length) * 100}%` }}
           />
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-[2fr_1fr_1fr_1fr]">
+          <select
+            value={savedDraftId}
+            onChange={(event) => setSavedDraftId(event.target.value)}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          >
+            <option value="">Select saved draft</option>
+            {savedDrafts.map((draft) => (
+              <option key={draft.id} value={draft.id}>
+                {draft.title} ({new Date(draft.savedAt).toLocaleDateString()})
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+          >
+            Save Draft
+          </button>
+          <button
+            type="button"
+            onClick={handleLoadDraft}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+          >
+            Load Draft
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteDraft}
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+          >
+            Delete Draft
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleNewDraft}
+            className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+          >
+            New Draft
+          </button>
+          <p className="text-sm text-zinc-600">Draft ID: {draftId}</p>
+          {storageMessage && (
+            <p className="text-sm font-medium text-emerald-700">{storageMessage}</p>
+          )}
         </div>
       </section>
 
