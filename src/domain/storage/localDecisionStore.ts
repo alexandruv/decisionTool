@@ -33,6 +33,13 @@ export type DecisionDraftSnapshot = {
   constraints: ConstraintDraftSnapshot[];
 };
 
+export type DecisionMoodState =
+  | "steady"
+  | "stressed"
+  | "excited"
+  | "tired"
+  | "uncertain";
+
 export type DecisionDraftHistoryEntry = {
   id: string;
   draftId: string;
@@ -43,6 +50,8 @@ export type DecisionDraftHistoryEntry = {
   topAlternativeScore: number | null;
   robustness: number | null;
   winProbability: number | null;
+  moodState?: DecisionMoodState;
+  clarity?: 1 | 2 | 3 | 4 | 5;
 };
 
 export type DecisionDraftHistorySummary = {
@@ -52,6 +61,8 @@ export type DecisionDraftHistorySummary = {
   topAlternativeScore: number | null;
   robustness: number | null;
   winProbability: number | null;
+  moodState?: DecisionMoodState;
+  clarity?: 1 | 2 | 3 | 4 | 5;
 };
 
 const STORAGE_KEY = "decision-tool.drafts.v1";

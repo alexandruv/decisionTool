@@ -20,6 +20,7 @@ import {
   type RiskPreference,
 } from "@/domain/types";
 import {
+  type DecisionMoodState,
   deleteDecisionDraft,
   listDecisionDraftHistory,
   listDecisionDrafts,
@@ -144,6 +145,22 @@ function findAlternativeLabel(
   );
 }
 
+function moodStateLabel(state?: DecisionMoodState): string {
+  if (!state) {
+    return "N/A";
+  }
+
+  const labels: Record<DecisionMoodState, string> = {
+    steady: "Steady",
+    stressed: "Stressed",
+    excited: "Excited",
+    tired: "Tired",
+    uncertain: "Uncertain",
+  };
+
+  return labels[state];
+}
+
 export default function Home() {
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [savedDrafts, setSavedDrafts] = useState<DecisionDraftSnapshot[]>(() =>
@@ -163,6 +180,8 @@ export default function Home() {
   const [tooCloseThreshold, setTooCloseThreshold] = useState(
     DEFAULT_RECOMMENDATION_THRESHOLDS.tooCloseWinProbability,
   );
+  const [moodState, setMoodState] = useState<DecisionMoodState>("steady");
+  const [clarity, setClarity] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("Should I sell my apartment now?");
   const [description, setDescription] = useState(
@@ -468,10 +487,30 @@ export default function Home() {
           typeof previous?.topAlternativeScore === "number"
             ? entry.topAlternativeScore - previous.topAlternativeScore
             : null;
+        const clarityDelta =
+          typeof entry.clarity === "number" && typeof previous?.clarity === "number"
+            ? entry.clarity - previous.clarity
+            : null;
+        const shiftSignals =
+          (entry.moodState && previous?.moodState && entry.moodState !== previous.moodState
+            ? 1
+            : 0) +
+          (clarityDelta !== null && Math.abs(clarityDelta) >= 2 ? 1 : 0) +
+          (delta !== null && Math.abs(delta) >= 2 ? 1 : 0);
+        const stabilityTag =
+          index === 0
+            ? "Baseline"
+            : shiftSignals >= 2
+              ? "Re-check advised"
+              : shiftSignals === 1
+                ? "Some drift"
+                : "Stable";
 
         return {
           ...entry,
           delta,
+          clarityDelta,
+          stabilityTag,
         };
       }),
     [revisitHistory],
@@ -589,6 +628,8 @@ export default function Home() {
       topAlternativeScore: topScore?.score ?? null,
       robustness: simulationResult?.robustness ?? null,
       winProbability: simulationTop?.winProbability ?? null,
+      moodState,
+      clarity,
     };
 
     const updated = saveDecisionDraft({
@@ -653,6 +694,8 @@ export default function Home() {
     setTitle("Should I sell my apartment now?");
     setDescription("I want to compare selling now versus keeping the property.");
     setRiskPreference("balanced");
+    setMoodState("steady");
+    setClarity(3);
     setAlternatives([
       "Sell now",
       "Keep and live in it",
@@ -1489,6 +1532,49 @@ export default function Home() {
 
           <article className="rounded-xl border border-zinc-200 p-4">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              Save-Time Stability Check
+            </h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Capture your current headspace before saving so timeline shifts can be interpreted in context.
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="text-sm text-zinc-700">
+                Current headspace
+                <select
+                  value={moodState}
+                  onChange={(event) =>
+                    setMoodState(event.target.value as DecisionMoodState)
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2"
+                >
+                  <option value="steady">Steady</option>
+                  <option value="stressed">Stressed</option>
+                  <option value="excited">Excited</option>
+                  <option value="tired">Tired</option>
+                  <option value="uncertain">Uncertain</option>
+                </select>
+              </label>
+              <label className="text-sm text-zinc-700">
+                Decision clarity (1-5)
+                <select
+                  value={clarity}
+                  onChange={(event) =>
+                    setClarity(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2"
+                >
+                  <option value={1}>1 - Very unclear</option>
+                  <option value={2}>2 - Somewhat unclear</option>
+                  <option value={3}>3 - Neutral</option>
+                  <option value={4}>4 - Fairly clear</option>
+                  <option value={5}>5 - Very clear</option>
+                </select>
+              </label>
+            </div>
+          </article>
+
+          <article className="rounded-xl border border-zinc-200 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
               Explainability Summary
             </h3>
             <p className="mt-1 text-sm text-zinc-500">
@@ -1653,9 +1739,12 @@ export default function Home() {
                       <th className="py-2 pr-4">Saved</th>
                       <th className="py-2 pr-4">Status</th>
                       <th className="py-2 pr-4">Recommended</th>
+                      <th className="py-2 pr-4">Mood</th>
+                      <th className="py-2 pr-4">Clarity</th>
                       <th className="py-2 pr-4">Top Score</th>
                       <th className="py-2 pr-4">Delta</th>
                       <th className="py-2 pr-4">Robustness</th>
+                      <th className="py-2 pr-4">Stability Signal</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1668,6 +1757,8 @@ export default function Home() {
                         <td className="py-2 pr-4">
                           {entry.recommendedAlternativeName ?? "None"}
                         </td>
+                        <td className="py-2 pr-4">{moodStateLabel(entry.moodState)}</td>
+                        <td className="py-2 pr-4">{entry.clarity ?? "N/A"}</td>
                         <td className="py-2 pr-4">
                           {entry.topAlternativeScore === null
                             ? "N/A"
@@ -1683,6 +1774,7 @@ export default function Home() {
                             ? "N/A"
                             : `${(entry.robustness * 100).toFixed(1)}%`}
                         </td>
+                        <td className="py-2 pr-4">{entry.stabilityTag}</td>
                       </tr>
                     ))}
                   </tbody>
