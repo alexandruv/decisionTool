@@ -21,9 +21,11 @@ import {
 } from "@/domain/types";
 import {
   deleteDecisionDraft,
+  listDecisionDraftHistory,
   listDecisionDrafts,
   loadDecisionDraft,
   saveDecisionDraft,
+  type DecisionDraftHistorySummary,
   type DecisionDraftSnapshot,
 } from "@/domain/storage/localDecisionStore";
 
@@ -456,6 +458,24 @@ export default function Home() {
       watchoutsNarrative,
     };
   }, [result.flipConditions, result.nextBestData, simulationResult]);
+  const revisitHistory = listDecisionDraftHistory(draftId);
+  const historyWithDelta = useMemo(
+    () =>
+      revisitHistory.map((entry, index) => {
+        const previous = revisitHistory[index - 1];
+        const delta =
+          typeof entry.topAlternativeScore === "number" &&
+          typeof previous?.topAlternativeScore === "number"
+            ? entry.topAlternativeScore - previous.topAlternativeScore
+            : null;
+
+        return {
+          ...entry,
+          delta,
+        };
+      }),
+    [revisitHistory],
+  );
 
   function updateAlternative(index: number, value: string) {
     setAlternatives((current) =>
@@ -553,6 +573,24 @@ export default function Home() {
   }
 
   function handleSaveDraft() {
+    const passScores = result.scores
+      .filter((score) => score.gate === "PASS" && score.score !== null)
+      .sort((a, b) => (b.score as number) - (a.score as number));
+    const topScore = passScores[0] ?? null;
+    const simulationTop = simulationResult
+      ? [...simulationResult.alternatives]
+          .filter((alternative) => alternative.gate === "PASS")
+          .sort((a, b) => b.winProbability - a.winProbability)[0]
+      : null;
+    const historySummary: DecisionDraftHistorySummary = {
+      status: policyRecommendation.status,
+      recommendedAlternativeId: policyRecommendation.recommendedAlternativeId,
+      recommendedAlternativeName: recommendedAlternativeLabel,
+      topAlternativeScore: topScore?.score ?? null,
+      robustness: simulationResult?.robustness ?? null,
+      winProbability: simulationTop?.winProbability ?? null,
+    };
+
     const updated = saveDecisionDraft({
       id: draftId,
       title,
@@ -562,7 +600,7 @@ export default function Home() {
       categories,
       factors,
       constraints,
-    });
+    }, historySummary);
 
     setSavedDrafts(updated);
     setSavedDraftId(draftId);
@@ -1594,6 +1632,63 @@ export default function Home() {
                 ))}
               </ul>
             </div>
+          </article>
+
+          <article className="rounded-xl border border-zinc-200 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              Revisit Timeline
+            </h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Each save captures a checkpoint so you can see how your leading score and confidence evolve.
+            </p>
+            {historyWithDelta.length === 0 ? (
+              <p className="mt-3 text-sm text-zinc-600">
+                No timeline yet. Save this draft after major assumption changes to build history.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-left text-sm text-zinc-700">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-zinc-500">
+                      <th className="py-2 pr-4">Saved</th>
+                      <th className="py-2 pr-4">Status</th>
+                      <th className="py-2 pr-4">Recommended</th>
+                      <th className="py-2 pr-4">Top Score</th>
+                      <th className="py-2 pr-4">Delta</th>
+                      <th className="py-2 pr-4">Robustness</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...historyWithDelta].reverse().map((entry) => (
+                      <tr key={entry.id} className="border-b border-zinc-100">
+                        <td className="py-2 pr-4">
+                          {new Date(entry.savedAt).toLocaleString()}
+                        </td>
+                        <td className="py-2 pr-4">{formatStatusLabel(entry.status)}</td>
+                        <td className="py-2 pr-4">
+                          {entry.recommendedAlternativeName ?? "None"}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {entry.topAlternativeScore === null
+                            ? "N/A"
+                            : entry.topAlternativeScore.toFixed(2)}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {entry.delta === null
+                            ? "N/A"
+                            : `${entry.delta >= 0 ? "+" : ""}${entry.delta.toFixed(2)}`}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {entry.robustness === null
+                            ? "N/A"
+                            : `${(entry.robustness * 100).toFixed(1)}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </article>
         </section>
       )}
