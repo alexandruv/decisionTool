@@ -7,6 +7,10 @@ import {
   formatStatusLabel,
 } from "@/domain/scoring/engine";
 import { buildDecisionMarkdown } from "@/domain/export/decisionMarkdown";
+import {
+  applySimulationRecommendationPolicy,
+  DEFAULT_RECOMMENDATION_THRESHOLDS,
+} from "@/domain/scoring/recommendationPolicy";
 import { runDecisionSimulation } from "@/domain/scoring/simulation";
 import {
   type Constraint,
@@ -65,6 +69,15 @@ export default function Home() {
     return drafts[0]?.id ?? "";
   });
   const [storageMessage, setStorageMessage] = useState("");
+  const [recommendedWinThreshold, setRecommendedWinThreshold] = useState(
+    DEFAULT_RECOMMENDATION_THRESHOLDS.recommendedWinProbability,
+  );
+  const [robustnessThreshold, setRobustnessThreshold] = useState(
+    DEFAULT_RECOMMENDATION_THRESHOLDS.recommendedRobustness,
+  );
+  const [tooCloseThreshold, setTooCloseThreshold] = useState(
+    DEFAULT_RECOMMENDATION_THRESHOLDS.tooCloseWinProbability,
+  );
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("Should I sell my apartment now?");
   const [description, setDescription] = useState(
@@ -203,6 +216,15 @@ export default function Home() {
   const simulationResult = useMemo(
     () => (canRun ? runDecisionSimulation(decision, { iterations: 3000 }) : null),
     [canRun, decision],
+  );
+  const policyRecommendation = useMemo(
+    () =>
+      applySimulationRecommendationPolicy(result, simulationResult, {
+        recommendedWinProbability: recommendedWinThreshold,
+        recommendedRobustness: robustnessThreshold,
+        tooCloseWinProbability: tooCloseThreshold,
+      }),
+    [result, simulationResult, recommendedWinThreshold, robustnessThreshold, tooCloseThreshold],
   );
 
   function updateAlternative(index: number, value: string) {
@@ -854,7 +876,7 @@ export default function Home() {
             </p>
           )}
 
-          <article className="grid gap-4 md:grid-cols-4">
+          <article className="grid gap-4 md:grid-cols-5">
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm text-zinc-500">Status</p>
               <p className="mt-1 text-xl font-semibold text-zinc-900">
@@ -862,9 +884,15 @@ export default function Home() {
               </p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-sm text-zinc-500">Adjusted Status</p>
+              <p className="mt-1 text-xl font-semibold text-zinc-900">
+                {formatStatusLabel(policyRecommendation.status)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm text-zinc-500">Recommended Option</p>
               <p className="mt-1 text-xl font-semibold text-zinc-900">
-                {result.recommendedAlternativeId ?? "None"}
+                {policyRecommendation.recommendedAlternativeId ?? "None"}
               </p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
@@ -881,6 +909,55 @@ export default function Home() {
                   : "N/A"}
               </p>
             </div>
+          </article>
+
+          <article className="rounded-xl border border-zinc-200 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              Confidence Policy Controls
+            </h3>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <label className="text-sm text-zinc-700">
+                Recommended win threshold
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={recommendedWinThreshold}
+                  onChange={(event) =>
+                    setRecommendedWinThreshold(Number(event.target.value))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2"
+                />
+              </label>
+              <label className="text-sm text-zinc-700">
+                Recommended robustness threshold
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={robustnessThreshold}
+                  onChange={(event) =>
+                    setRobustnessThreshold(Number(event.target.value))
+                  }
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2"
+                />
+              </label>
+              <label className="text-sm text-zinc-700">
+                Too-close win threshold
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={tooCloseThreshold}
+                  onChange={(event) => setTooCloseThreshold(Number(event.target.value))}
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2"
+                />
+              </label>
+            </div>
+            <p className="mt-3 text-sm text-zinc-600">{policyRecommendation.reason}</p>
           </article>
 
           {simulationResult && (
