@@ -90,6 +90,13 @@ export type SimulationAlternativeStats = {
   scoreStdDev: number | null;
   minScore: number | null;
   maxScore: number | null;
+  percentile10: number | null;
+  percentile25: number | null;
+  percentile50: number | null;
+  percentile75: number | null;
+  percentile90: number | null;
+  confidenceBandLow: number | null;
+  confidenceBandHigh: number | null;
   winProbability: number;
 };
 

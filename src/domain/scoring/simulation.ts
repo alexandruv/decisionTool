@@ -23,6 +23,11 @@ const RISK_LAMBDA: Record<Decision["riskPreference"], number> = {
   cautious: 1,
 };
 
+const CONFIDENCE_BAND_PERCENTILES = {
+  low: 0.1,
+  high: 0.9,
+};
+
 function clampProbability(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -46,7 +51,59 @@ function probabilityRange(factor: Factor): [number, number] {
 
 function sampleProbability(factor: Factor, rng: () => number): number {
   const [low, high] = probabilityRange(factor);
-  return low + (high - low) * rng();
+  const mode = clampProbability(factor.probability);
+
+  if (high - low <= 0.000001) {
+    return low;
+  }
+
+  if (factor.evidenceConfidence === "strong") {
+    return sampleTriangular(low, high, mode, rng);
+  }
+
+  if (factor.evidenceConfidence === "some") {
+    const triangular = sampleTriangular(low, high, mode, rng);
+    const uniform = low + (high - low) * rng();
+    return clampProbability(triangular * 0.7 + uniform * 0.3);
+  }
+
+  const uniform = low + (high - low) * rng();
+  const tail = (rng() - 0.5) * (high - low) * 0.35;
+  return clampProbability(uniform + tail);
+}
+
+function sampleTriangular(
+  low: number,
+  high: number,
+  mode: number,
+  rng: () => number,
+): number {
+  const u = rng();
+  const c = (mode - low) / (high - low);
+
+  if (u <= c) {
+    return low + Math.sqrt(u * (high - low) * (mode - low));
+  }
+
+  return high - Math.sqrt((1 - u) * (high - low) * (high - mode));
+}
+
+function percentile(values: number[], p: number): number {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (sorted.length - 1) * p;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+
+  if (lower === upper) {
+    return sorted[lower];
+  }
+
+  const weight = index - lower;
+  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 }
 
 function mean(values: number[]): number {
@@ -85,9 +142,10 @@ export function runDecisionSimulation(
   });
 
   for (let i = 0; i < iterations; i += 1) {
+    const scenarioShock = (rng() - 0.5) * 0.08;
     const sampledFactors = decision.factors.map((factor) => ({
       ...factor,
-      probability: sampleProbability(factor, rng),
+      probability: clampProbability(sampleProbability(factor, rng) + scenarioShock),
     }));
 
     const sampledScores = decision.alternatives.map((alternative) =>
@@ -138,9 +196,22 @@ export function runDecisionSimulation(
           scoreStdDev: null,
           minScore: null,
           maxScore: null,
+          percentile10: null,
+          percentile25: null,
+          percentile50: null,
+          percentile75: null,
+          percentile90: null,
+          confidenceBandLow: null,
+          confidenceBandHigh: null,
           winProbability: 0,
         };
       }
+
+      const percentile10 = percentile(series, 0.1);
+      const percentile25 = percentile(series, 0.25);
+      const percentile50 = percentile(series, 0.5);
+      const percentile75 = percentile(series, 0.75);
+      const percentile90 = percentile(series, 0.9);
 
       return {
         alternativeId: alternative.id,
@@ -150,6 +221,13 @@ export function runDecisionSimulation(
         scoreStdDev: stdDev(series),
         minScore: Math.min(...series),
         maxScore: Math.max(...series),
+        percentile10,
+        percentile25,
+        percentile50,
+        percentile75,
+        percentile90,
+        confidenceBandLow: percentile(series, CONFIDENCE_BAND_PERCENTILES.low),
+        confidenceBandHigh: percentile(series, CONFIDENCE_BAND_PERCENTILES.high),
         winProbability: (winCountsByAlternative.get(alternative.id) ?? 0) / iterations,
       };
     },

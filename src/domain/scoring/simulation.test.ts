@@ -64,6 +64,23 @@ describe("runDecisionSimulation", () => {
       0,
     );
     expect(totalWinProbability).toBeCloseTo(1, 3);
+
+    result.alternatives.forEach((alternative) => {
+      expect(alternative.percentile10).not.toBeNull();
+      expect(alternative.percentile25).not.toBeNull();
+      expect(alternative.percentile50).not.toBeNull();
+      expect(alternative.percentile75).not.toBeNull();
+      expect(alternative.percentile90).not.toBeNull();
+      expect(alternative.confidenceBandLow).not.toBeNull();
+      expect(alternative.confidenceBandHigh).not.toBeNull();
+
+      expect((alternative.percentile10 as number) <= (alternative.percentile50 as number)).toBe(
+        true,
+      );
+      expect((alternative.percentile50 as number) <= (alternative.percentile90 as number)).toBe(
+        true,
+      );
+    });
   });
 
   it("enforces minimum iteration floor", () => {

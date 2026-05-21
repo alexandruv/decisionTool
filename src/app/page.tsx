@@ -1358,6 +1358,8 @@ export default function Home() {
                       <th className="py-2 pr-4">Gate</th>
                       <th className="py-2 pr-4">Mean</th>
                       <th className="py-2 pr-4">Std Dev</th>
+                      <th className="py-2 pr-4">Confidence Band (P10-P90)</th>
+                      <th className="py-2 pr-4">Percentiles (P25 / P50 / P75)</th>
                       <th className="py-2 pr-4">Win %</th>
                     </tr>
                   </thead>
@@ -1378,6 +1380,19 @@ export default function Home() {
                           {alternative.scoreStdDev === null
                             ? "N/A"
                             : alternative.scoreStdDev.toFixed(2)}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {alternative.confidenceBandLow === null ||
+                          alternative.confidenceBandHigh === null
+                            ? "N/A"
+                            : `${alternative.confidenceBandLow.toFixed(2)} - ${alternative.confidenceBandHigh.toFixed(2)}`}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {alternative.percentile25 === null ||
+                          alternative.percentile50 === null ||
+                          alternative.percentile75 === null
+                            ? "N/A"
+                            : `${alternative.percentile25.toFixed(2)} / ${alternative.percentile50.toFixed(2)} / ${alternative.percentile75.toFixed(2)}`}
                         </td>
                         <td className="py-2 pr-4">
                           {(alternative.winProbability * 100).toFixed(1)}%
