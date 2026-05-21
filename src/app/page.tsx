@@ -216,6 +216,12 @@ export default function Home() {
   const validation = useMemo(() => {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const invalidCategoryWeightIndices: number[] = [];
+    const invalidFactorLikelyIndices: number[] = [];
+    const invalidFactorLowIndices: number[] = [];
+    const invalidFactorHighIndices: number[] = [];
+    const invalidFactorRangeOrderIndices: number[] = [];
+    const factorLikelyOutsideRangeIndices: number[] = [];
 
     const weightSum = categories.reduce((sum, category) => sum + category.weight, 0);
 
@@ -227,6 +233,7 @@ export default function Home() {
 
     categories.forEach((category, index) => {
       if (category.weight < 0 || category.weight > 1) {
+        invalidCategoryWeightIndices.push(index);
         errors.push(
           `Category ${index + 1} (${category.name || "Unnamed"}) weight must be between 0 and 1.`,
         );
@@ -237,17 +244,20 @@ export default function Home() {
       const label = factor.description || `Factor ${index + 1}`;
 
       if (factor.probability < 0 || factor.probability > 1) {
+        invalidFactorLikelyIndices.push(index);
         errors.push(`${label}: likely probability must be between 0 and 1.`);
       }
 
       if (typeof factor.probabilityLow === "number") {
         if (factor.probabilityLow < 0 || factor.probabilityLow > 1) {
+          invalidFactorLowIndices.push(index);
           errors.push(`${label}: low probability must be between 0 and 1.`);
         }
       }
 
       if (typeof factor.probabilityHigh === "number") {
         if (factor.probabilityHigh < 0 || factor.probabilityHigh > 1) {
+          invalidFactorHighIndices.push(index);
           errors.push(`${label}: high probability must be between 0 and 1.`);
         }
       }
@@ -257,6 +267,7 @@ export default function Home() {
         typeof factor.probabilityHigh === "number"
       ) {
         if (factor.probabilityLow > factor.probabilityHigh) {
+          invalidFactorRangeOrderIndices.push(index);
           errors.push(`${label}: low probability cannot be greater than high probability.`);
         }
 
@@ -264,6 +275,7 @@ export default function Home() {
           factor.probability < factor.probabilityLow ||
           factor.probability > factor.probabilityHigh
         ) {
+          factorLikelyOutsideRangeIndices.push(index);
           warnings.push(
             `${label}: likely probability is outside the selected low/high range.`,
           );
@@ -271,7 +283,16 @@ export default function Home() {
       }
     });
 
-    return { errors, warnings };
+    return {
+      errors,
+      warnings,
+      invalidCategoryWeightIndices,
+      invalidFactorLikelyIndices,
+      invalidFactorLowIndices,
+      invalidFactorHighIndices,
+      invalidFactorRangeOrderIndices,
+      factorLikelyOutsideRangeIndices,
+    };
   }, [categories, factors]);
 
   const canAnalyze = canRun && validation.errors.length === 0;
@@ -667,8 +688,17 @@ export default function Home() {
                   onChange={(event) =>
                     updateCategoryWeight(index, Number(event.target.value))
                   }
-                  className="rounded-lg border border-zinc-300 px-3 py-2"
+                  className={`rounded-lg border px-3 py-2 ${
+                    validation.invalidCategoryWeightIndices.includes(index)
+                      ? "border-rose-400 bg-rose-50/80"
+                      : "border-zinc-300"
+                  }`}
                 />
+                {validation.invalidCategoryWeightIndices.includes(index) && (
+                  <p className="text-xs text-rose-700 md:col-span-2">
+                    Enter a value between 0 and 1.
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -765,8 +795,24 @@ export default function Home() {
             Rate factor gravity, likely probability, uncertainty range, and evidence confidence.
           </p>
           <div className="mt-4 space-y-4">
-            {factors.map((factor, index) => (
-              <div key={`factor-rate-${index}`} className="rounded-lg border border-zinc-200 p-4">
+            {factors.map((factor, index) => {
+              const likelyInvalid = validation.invalidFactorLikelyIndices.includes(index);
+              const lowInvalid = validation.invalidFactorLowIndices.includes(index);
+              const highInvalid = validation.invalidFactorHighIndices.includes(index);
+              const rangeInvalid =
+                validation.invalidFactorRangeOrderIndices.includes(index);
+              const likelyOutsideRange =
+                validation.factorLikelyOutsideRangeIndices.includes(index);
+              const hasRowError =
+                likelyInvalid || lowInvalid || highInvalid || rangeInvalid;
+
+              return (
+                <div
+                  key={`factor-rate-${index}`}
+                  className={`rounded-lg border p-4 ${
+                    hasRowError ? "border-rose-300 bg-rose-50/40" : "border-zinc-200"
+                  }`}
+                >
                 <p className="text-sm text-zinc-700">{factor.description || "Untitled factor"}</p>
                 <div className="mt-3 grid gap-2 md:grid-cols-5">
                   <select
@@ -793,7 +839,9 @@ export default function Home() {
                     onChange={(event) =>
                       updateFactor(index, { probability: Number(event.target.value) })
                     }
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className={`rounded-lg border px-3 py-2 ${
+                      likelyInvalid ? "border-rose-400 bg-rose-50/80" : "border-zinc-300"
+                    }`}
                   />
                   <input
                     type="number"
@@ -809,7 +857,11 @@ export default function Home() {
                             : Number(event.target.value),
                       })
                     }
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className={`rounded-lg border px-3 py-2 ${
+                      lowInvalid || rangeInvalid
+                        ? "border-rose-400 bg-rose-50/80"
+                        : "border-zinc-300"
+                    }`}
                     placeholder="Low"
                   />
                   <input
@@ -826,7 +878,11 @@ export default function Home() {
                             : Number(event.target.value),
                       })
                     }
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className={`rounded-lg border px-3 py-2 ${
+                      highInvalid || rangeInvalid
+                        ? "border-rose-400 bg-rose-50/80"
+                        : "border-zinc-300"
+                    }`}
                     placeholder="High"
                   />
                   <select
@@ -844,8 +900,16 @@ export default function Home() {
                     <option value="intuition">Mostly intuition</option>
                   </select>
                 </div>
+                {(hasRowError || likelyOutsideRange) && (
+                  <p className="mt-2 text-xs text-rose-700">
+                    {hasRowError
+                      ? "Fix highlighted probability fields."
+                      : "Likely probability is outside your low/high range."}
+                  </p>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
