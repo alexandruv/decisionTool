@@ -36,6 +36,17 @@ const MUST_NOT_FAIL_THRESHOLD = 0.25;
 const RECOMMENDED_MARGIN = 5;
 const TOO_CLOSE_MARGIN = 2;
 
+const HIGH_STAKES_PATTERNS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /medical|health|treatment|surgery|diagnosis/i, label: "medical" },
+  { pattern: /legal|law|contract|court|lawsuit/i, label: "legal" },
+  { pattern: /tax|vat|irs|fiscal/i, label: "tax" },
+  { pattern: /invest|portfolio|stock|crypto|bond/i, label: "investment" },
+  {
+    pattern: /real estate|property|mortgage|apartment|house|land/i,
+    label: "real-estate",
+  },
+];
+
 export function gravityValue(gravity: Factor["gravity"]): number {
   return GRAVITY_MAP[gravity];
 }
@@ -321,6 +332,27 @@ function decideStatus(
   return "recommended";
 }
 
+function detectGuardrailWarnings(decision: Decision): string[] {
+  const haystack = [
+    decision.title,
+    decision.description,
+    ...decision.constraints.map((constraint) => constraint.description),
+    ...decision.factors.map((factor) => factor.description),
+  ].join("\n");
+
+  const matchedDomains = HIGH_STAKES_PATTERNS.filter(({ pattern }) =>
+    pattern.test(haystack),
+  ).map(({ label }) => label);
+
+  if (matchedDomains.length === 0) {
+    return [];
+  }
+
+  return [
+    `This decision includes ${matchedDomains.join(", ")} considerations. Verify facts and consult a qualified professional before acting.`,
+  ];
+}
+
 export function buildDecisionResult(decision: Decision): DecisionResult {
   const rawScores = decision.alternatives.map((alternative) =>
     scoreAlternative(
@@ -350,6 +382,7 @@ export function buildDecisionResult(decision: Decision): DecisionResult {
     topRisks,
     flipConditions: flipConditions(decision, ranked),
     nextBestData: nextBestData(decision, topAlternativeId),
+    guardrailWarnings: detectGuardrailWarnings(decision),
   };
 }
 

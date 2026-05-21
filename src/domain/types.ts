@@ -79,6 +79,7 @@ export type DecisionResult = {
   topRisks: Factor[];
   flipConditions: string[];
   nextBestData: string[];
+  guardrailWarnings: string[];
 };
 
 export type SimulationAlternativeStats = {

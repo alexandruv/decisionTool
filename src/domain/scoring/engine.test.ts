@@ -111,4 +111,12 @@ describe("buildDecisionResult", () => {
     expect(result.status).toBe("not_recommended");
     expect(result.recommendedAlternativeId).toBeUndefined();
   });
+
+  it("adds guardrail warning for high-stakes domains", () => {
+    const decision = makeBaseDecision();
+    decision.title = "Should I make this medical treatment investment decision?";
+
+    const result = buildDecisionResult(decision);
+    expect(result.guardrailWarnings.length).toBeGreaterThan(0);
+  });
 });

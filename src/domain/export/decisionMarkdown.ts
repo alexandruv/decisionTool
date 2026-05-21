@@ -74,6 +74,11 @@ export function buildDecisionMarkdown(
       ? result.nextBestData.map((item) => `- ${item}`)
       : ["- No priority data gaps identified."]),
     "",
+    "## Guardrail Warnings",
+    ...(result.guardrailWarnings.length > 0
+      ? result.guardrailWarnings.map((warning) => `- ${warning}`)
+      : ["- No high-stakes guardrails triggered."]),
+    "",
     "## Alternative Scores",
     ...result.scores.map((score) => {
       const scoreText = score.score === null ? "N/A" : score.score.toFixed(2);

@@ -978,6 +978,17 @@ export default function Home() {
             </p>
           )}
 
+          {result.guardrailWarnings.length > 0 && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/80 p-4 text-amber-900">
+              <p className="text-sm font-semibold uppercase tracking-wide">Guardrail Warning</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {result.guardrailWarnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <article className="grid gap-4 md:grid-cols-5">
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm text-zinc-500">Status</p>
