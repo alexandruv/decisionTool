@@ -212,10 +212,73 @@ export default function Home() {
     decision.alternatives.length >= 3 &&
     decision.categories.length > 0 &&
     decision.factors.length > 0;
+
+  const validation = useMemo(() => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const weightSum = categories.reduce((sum, category) => sum + category.weight, 0);
+
+    if (Math.abs(weightSum - 1) > 0.01) {
+      warnings.push(
+        `Category weights currently sum to ${weightSum.toFixed(2)} (target: 1.00).`,
+      );
+    }
+
+    categories.forEach((category, index) => {
+      if (category.weight < 0 || category.weight > 1) {
+        errors.push(
+          `Category ${index + 1} (${category.name || "Unnamed"}) weight must be between 0 and 1.`,
+        );
+      }
+    });
+
+    factors.forEach((factor, index) => {
+      const label = factor.description || `Factor ${index + 1}`;
+
+      if (factor.probability < 0 || factor.probability > 1) {
+        errors.push(`${label}: likely probability must be between 0 and 1.`);
+      }
+
+      if (typeof factor.probabilityLow === "number") {
+        if (factor.probabilityLow < 0 || factor.probabilityLow > 1) {
+          errors.push(`${label}: low probability must be between 0 and 1.`);
+        }
+      }
+
+      if (typeof factor.probabilityHigh === "number") {
+        if (factor.probabilityHigh < 0 || factor.probabilityHigh > 1) {
+          errors.push(`${label}: high probability must be between 0 and 1.`);
+        }
+      }
+
+      if (
+        typeof factor.probabilityLow === "number" &&
+        typeof factor.probabilityHigh === "number"
+      ) {
+        if (factor.probabilityLow > factor.probabilityHigh) {
+          errors.push(`${label}: low probability cannot be greater than high probability.`);
+        }
+
+        if (
+          factor.probability < factor.probabilityLow ||
+          factor.probability > factor.probabilityHigh
+        ) {
+          warnings.push(
+            `${label}: likely probability is outside the selected low/high range.`,
+          );
+        }
+      }
+    });
+
+    return { errors, warnings };
+  }, [categories, factors]);
+
+  const canAnalyze = canRun && validation.errors.length === 0;
   const result = useMemo(() => buildDecisionResult(decision), [decision]);
   const simulationResult = useMemo(
-    () => (canRun ? runDecisionSimulation(decision, { iterations: 3000 }) : null),
-    [canRun, decision],
+    () => (canAnalyze ? runDecisionSimulation(decision, { iterations: 3000 }) : null),
+    [canAnalyze, decision],
   );
   const policyRecommendation = useMemo(
     () =>
@@ -470,6 +533,28 @@ export default function Home() {
             <p className="text-sm font-medium text-emerald-700">{storageMessage}</p>
           )}
         </div>
+
+        {validation.errors.length > 0 && (
+          <div className="mt-4 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">
+            <p className="font-semibold">Input errors to fix</p>
+            <ul className="mt-1 list-disc pl-5">
+              {validation.errors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {validation.warnings.length > 0 && (
+          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-semibold">Validation warnings</p>
+            <ul className="mt-1 list-disc pl-5">
+              {validation.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       {step === 0 && (
@@ -870,9 +955,9 @@ export default function Home() {
 
       {step === 7 && (
         <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          {!canRun && (
+          {!canAnalyze && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Add at least 3 alternatives, one category, and one factor to run the model.
+              Add required inputs and resolve validation errors before running analysis.
             </p>
           )}
 
