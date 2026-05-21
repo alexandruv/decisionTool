@@ -59,6 +59,44 @@ const STEP_TITLES = [
   "Run and Review",
 ];
 
+type CalibrationAnswer = "left" | "equal" | "right";
+
+type CalibrationPair = {
+  key: string;
+  leftIndex: number;
+  rightIndex: number;
+  leftName: string;
+  rightName: string;
+};
+
+function buildCalibrationPairs(
+  categoryEntries: Array<{ name: string; weight: number }>,
+): CalibrationPair[] {
+  const pairs: CalibrationPair[] = [];
+
+  for (let leftIndex = 0; leftIndex < categoryEntries.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < categoryEntries.length;
+      rightIndex += 1
+    ) {
+      const leftName = categoryEntries[leftIndex].name || `Category ${leftIndex + 1}`;
+      const rightName =
+        categoryEntries[rightIndex].name || `Category ${rightIndex + 1}`;
+
+      pairs.push({
+        key: `${leftName}__${rightName}__${leftIndex}__${rightIndex}`,
+        leftIndex,
+        rightIndex,
+        leftName,
+        rightName,
+      });
+    }
+  }
+
+  return pairs;
+}
+
 export default function Home() {
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [savedDrafts, setSavedDrafts] = useState<DecisionDraftSnapshot[]>(() =>
@@ -130,6 +168,10 @@ export default function Home() {
       satisfied: true,
     },
   ]);
+  const [calibrationPairIndex, setCalibrationPairIndex] = useState(0);
+  const [calibrationAnswers, setCalibrationAnswers] = useState<
+    Record<string, CalibrationAnswer>
+  >({});
 
   const decision = useMemo((): Decision => {
     const now = new Date().toISOString();
@@ -212,6 +254,15 @@ export default function Home() {
     decision.alternatives.length >= 3 &&
     decision.categories.length > 0 &&
     decision.factors.length > 0;
+
+  const calibrationPairs = useMemo(
+    () => buildCalibrationPairs(categories),
+    [categories],
+  );
+  const activeCalibrationPair = calibrationPairs[calibrationPairIndex];
+  const calibrationAnsweredCount = calibrationPairs.filter(
+    (pair) => calibrationAnswers[pair.key] !== undefined,
+  ).length;
 
   const validation = useMemo(() => {
     const errors: string[] = [];
@@ -331,6 +382,63 @@ export default function Home() {
         idx === index ? { ...entry, weight: value } : entry,
       ),
     );
+  }
+
+  function setCalibrationAnswer(answer: CalibrationAnswer) {
+    if (!activeCalibrationPair) {
+      return;
+    }
+
+    setCalibrationAnswers((current) => ({
+      ...current,
+      [activeCalibrationPair.key]: answer,
+    }));
+
+    setCalibrationPairIndex((current) =>
+      Math.min(current + 1, Math.max(calibrationPairs.length - 1, 0)),
+    );
+  }
+
+  function resetCalibration() {
+    setCalibrationAnswers({});
+    setCalibrationPairIndex(0);
+    setStorageMessage("Calibration answers reset.");
+    clearStorageMessage();
+  }
+
+  function applyCalibrationWeights() {
+    if (categories.length === 0) {
+      return;
+    }
+
+    const scores = categories.map(() => 1);
+
+    calibrationPairs.forEach((pair) => {
+      const answer = calibrationAnswers[pair.key];
+
+      if (answer === "left") {
+        scores[pair.leftIndex] += 1;
+      } else if (answer === "right") {
+        scores[pair.rightIndex] += 1;
+      } else if (answer === "equal") {
+        scores[pair.leftIndex] += 0.5;
+        scores[pair.rightIndex] += 0.5;
+      }
+    });
+
+    const total = scores.reduce((sum, value) => sum + value, 0);
+    const normalized =
+      total > 0 ? scores.map((score) => score / total) : scores.map(() => 0);
+
+    setCategories((current) =>
+      current.map((category, index) => ({
+        ...category,
+        weight: Number((normalized[index] ?? 0).toFixed(2)),
+      })),
+    );
+
+    setStorageMessage("Calibration applied to category weights.");
+    clearStorageMessage();
   }
 
   function updateFactor(index: number, patch: Partial<FactorDraft>) {
@@ -671,9 +779,104 @@ export default function Home() {
       {step === 3 && (
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-zinc-600">
-            Set category importance using normalized weights between 0 and 1.
+            Calibrate category importance with quick trade-offs, then fine-tune manually.
           </p>
+
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <p className="text-sm font-semibold text-zinc-700">Trade-Off Calibration</p>
+            <p className="mt-1 text-sm text-zinc-600">
+              Answer pairwise comparisons to auto-suggest normalized weights.
+            </p>
+
+            {activeCalibrationPair ? (
+              <>
+                <p className="mt-3 text-sm text-zinc-700">
+                  Which matters more for this decision?
+                </p>
+                <p className="mt-1 text-base font-semibold text-zinc-900">
+                  {activeCalibrationPair.leftName} vs {activeCalibrationPair.rightName}
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => setCalibrationAnswer("left")}
+                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+                  >
+                    {activeCalibrationPair.leftName}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalibrationAnswer("equal")}
+                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+                  >
+                    Similar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalibrationAnswer("right")}
+                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+                  >
+                    {activeCalibrationPair.rightName}
+                  </button>
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Answered {calibrationAnsweredCount} of {calibrationPairs.length} comparisons.
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-zinc-600">
+                Add at least 2 categories to use trade-off calibration.
+              </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setCalibrationPairIndex((current) => Math.max(current - 1, 0))
+                }
+                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+                disabled={calibrationPairIndex === 0 || calibrationPairs.length === 0}
+              >
+                Previous Pair
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setCalibrationPairIndex((current) =>
+                    Math.min(current + 1, Math.max(calibrationPairs.length - 1, 0)),
+                  )
+                }
+                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+                disabled={
+                  calibrationPairs.length === 0 ||
+                  calibrationPairIndex >= calibrationPairs.length - 1
+                }
+              >
+                Next Pair
+              </button>
+              <button
+                type="button"
+                onClick={applyCalibrationWeights}
+                className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+                disabled={calibrationPairs.length === 0}
+              >
+                Apply Calibration
+              </button>
+              <button
+                type="button"
+                onClick={resetCalibration}
+                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium"
+              >
+                Reset Calibration
+              </button>
+            </div>
+          </div>
+
           <div className="mt-4 space-y-3">
+            <p className="text-sm text-zinc-600">
+              Manual weight fine-tuning (0..1 each, target sum 1.00).
+            </p>
             {categories.map((category, index) => (
               <div key={`weight-${index}`} className="grid gap-2 md:grid-cols-[2fr_1fr]">
                 <p className="rounded-lg border border-zinc-200 px-3 py-2 text-zinc-700">
