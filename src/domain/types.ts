@@ -44,6 +44,8 @@ export type Factor = {
   direction: "pro" | "con";
   gravity: 1 | 2 | 3 | 4 | 5;
   probability: number;
+  probabilityLow?: number;
+  probabilityHigh?: number;
   evidenceConfidence: EvidenceConfidence;
   constraintType?: "none" | ConstraintType;
   mitigated?: boolean;
@@ -77,4 +79,22 @@ export type DecisionResult = {
   topRisks: Factor[];
   flipConditions: string[];
   nextBestData: string[];
+};
+
+export type SimulationAlternativeStats = {
+  alternativeId: string;
+  alternativeName: string;
+  gate: GateStatus;
+  meanScore: number | null;
+  scoreStdDev: number | null;
+  minScore: number | null;
+  maxScore: number | null;
+  winProbability: number;
+};
+
+export type DecisionSimulationResult = {
+  iterations: number;
+  recommendedAlternativeId?: string;
+  robustness: number;
+  alternatives: SimulationAlternativeStats[];
 };
