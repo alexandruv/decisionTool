@@ -7,6 +7,7 @@ import {
   formatStatusLabel,
 } from "@/domain/scoring/engine";
 import { buildDecisionMarkdown } from "@/domain/export/decisionMarkdown";
+import { runDecisionSimulation } from "@/domain/scoring/simulation";
 import {
   type Constraint,
   type Decision,
@@ -29,6 +30,8 @@ type FactorDraft = {
   direction: "pro" | "con";
   gravity: 1 | 2 | 3 | 4 | 5;
   probability: number;
+  probabilityLow?: number;
+  probabilityHigh?: number;
   evidenceConfidence: EvidenceConfidence;
 };
 
@@ -90,6 +93,8 @@ export default function Home() {
       direction: "pro",
       gravity: 4,
       probability: 0.95,
+      probabilityLow: 0.9,
+      probabilityHigh: 0.98,
       evidenceConfidence: "strong",
     },
     {
@@ -99,6 +104,8 @@ export default function Home() {
       direction: "con",
       gravity: 4,
       probability: 0.7,
+      probabilityLow: 0.5,
+      probabilityHigh: 0.85,
       evidenceConfidence: "some",
     },
   ]);
@@ -151,6 +158,8 @@ export default function Home() {
         direction: factor.direction,
         gravity: factor.gravity,
         probability: factor.probability,
+        probabilityLow: factor.probabilityLow,
+        probabilityHigh: factor.probabilityHigh,
         evidenceConfidence: factor.evidenceConfidence,
       }));
 
@@ -186,11 +195,15 @@ export default function Home() {
     };
   }, [alternatives, categories, constraints, description, factors, riskPreference, title]);
 
-  const result = useMemo(() => buildDecisionResult(decision), [decision]);
   const canRun =
     decision.alternatives.length >= 3 &&
     decision.categories.length > 0 &&
     decision.factors.length > 0;
+  const result = useMemo(() => buildDecisionResult(decision), [decision]);
+  const simulationResult = useMemo(
+    () => (canRun ? runDecisionSimulation(decision, { iterations: 3000 }) : null),
+    [canRun, decision],
+  );
 
   function updateAlternative(index: number, value: string) {
     setAlternatives((current) =>
@@ -313,6 +326,8 @@ export default function Home() {
         direction: "pro",
         gravity: 4,
         probability: 0.95,
+        probabilityLow: 0.9,
+        probabilityHigh: 0.98,
         evidenceConfidence: "strong",
       },
       {
@@ -322,6 +337,8 @@ export default function Home() {
         direction: "con",
         gravity: 4,
         probability: 0.7,
+        probabilityLow: 0.5,
+        probabilityHigh: 0.85,
         evidenceConfidence: "some",
       },
     ]);
@@ -605,6 +622,8 @@ export default function Home() {
                   direction: "pro",
                   gravity: 3,
                   probability: 0.5,
+                  probabilityLow: 0.35,
+                  probabilityHigh: 0.65,
                   evidenceConfidence: "some",
                 },
               ])
@@ -619,13 +638,13 @@ export default function Home() {
       {step === 5 && (
         <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-zinc-600">
-            Rate factor gravity, probability, and evidence confidence.
+            Rate factor gravity, likely probability, uncertainty range, and evidence confidence.
           </p>
           <div className="mt-4 space-y-4">
             {factors.map((factor, index) => (
               <div key={`factor-rate-${index}`} className="rounded-lg border border-zinc-200 p-4">
                 <p className="text-sm text-zinc-700">{factor.description || "Untitled factor"}</p>
-                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                <div className="mt-3 grid gap-2 md:grid-cols-5">
                   <select
                     value={factor.gravity}
                     onChange={(event) =>
@@ -651,6 +670,40 @@ export default function Home() {
                       updateFactor(index, { probability: Number(event.target.value) })
                     }
                     className="rounded-lg border border-zinc-300 px-3 py-2"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={factor.probabilityLow ?? ""}
+                    onChange={(event) =>
+                      updateFactor(index, {
+                        probabilityLow:
+                          event.target.value === ""
+                            ? undefined
+                            : Number(event.target.value),
+                      })
+                    }
+                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    placeholder="Low"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={factor.probabilityHigh ?? ""}
+                    onChange={(event) =>
+                      updateFactor(index, {
+                        probabilityHigh:
+                          event.target.value === ""
+                            ? undefined
+                            : Number(event.target.value),
+                      })
+                    }
+                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    placeholder="High"
                   />
                   <select
                     value={factor.evidenceConfidence}
@@ -801,7 +854,7 @@ export default function Home() {
             </p>
           )}
 
-          <article className="grid gap-4 md:grid-cols-3">
+          <article className="grid gap-4 md:grid-cols-4">
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm text-zinc-500">Status</p>
               <p className="mt-1 text-xl font-semibold text-zinc-900">
@@ -820,7 +873,60 @@ export default function Home() {
                 {result.flipConditions.length}
               </p>
             </div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-sm text-zinc-500">Robustness</p>
+              <p className="mt-1 text-xl font-semibold text-zinc-900">
+                {simulationResult
+                  ? `${(simulationResult.robustness * 100).toFixed(1)}%`
+                  : "N/A"}
+              </p>
+            </div>
           </article>
+
+          {simulationResult && (
+            <article className="rounded-xl border border-zinc-200 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
+                Uncertainty Simulation ({simulationResult.iterations.toLocaleString()} runs)
+              </h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-left text-sm text-zinc-700">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-zinc-500">
+                      <th className="py-2 pr-4">Alternative</th>
+                      <th className="py-2 pr-4">Gate</th>
+                      <th className="py-2 pr-4">Mean</th>
+                      <th className="py-2 pr-4">Std Dev</th>
+                      <th className="py-2 pr-4">Win %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {simulationResult.alternatives.map((alternative) => (
+                      <tr
+                        key={alternative.alternativeId}
+                        className="border-b border-zinc-100"
+                      >
+                        <td className="py-2 pr-4">{alternative.alternativeName}</td>
+                        <td className="py-2 pr-4">{alternative.gate}</td>
+                        <td className="py-2 pr-4">
+                          {alternative.meanScore === null
+                            ? "N/A"
+                            : alternative.meanScore.toFixed(2)}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {alternative.scoreStdDev === null
+                            ? "N/A"
+                            : alternative.scoreStdDev.toFixed(2)}
+                        </td>
+                        <td className="py-2 pr-4">
+                          {(alternative.winProbability * 100).toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          )}
 
           <article className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-zinc-200 p-4">

@@ -7,6 +7,8 @@ export type FactorDraftSnapshot = {
   direction: "pro" | "con";
   gravity: 1 | 2 | 3 | 4 | 5;
   probability: number;
+  probabilityLow?: number;
+  probabilityHigh?: number;
   evidenceConfidence: EvidenceConfidence;
 };
 
