@@ -27,6 +27,7 @@ body {
     linear-gradient(165deg, #f8f7f5 0%, #f2f4f1 58%, #edf2f7 100%);
   color: var(--foreground);
   font-family: var(--font-manrope), sans-serif;
+  line-height: 1.45;
 }
 
 h1,
@@ -34,6 +35,21 @@ h2,
 h3 {
   font-family: var(--font-fraunces), serif;
   letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+p,
+li,
+label,
+input,
+select,
+textarea,
+button {
+  font-size: 0.95rem;
+}
+
+label {
+  letter-spacing: 0.01em;
 }
 
 .bg-white {
@@ -75,7 +91,16 @@ input,
 textarea,
 select {
   background: rgba(255, 255, 255, 0.7);
-  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8b96a5;
 }
 
 input:focus,
@@ -83,6 +108,7 @@ textarea:focus,
 select:focus {
   border-color: #b5c7d9 !important;
   box-shadow: 0 0 0 3px rgba(189, 214, 236, 0.45);
+  background-color: rgba(255, 255, 255, 0.94);
   outline: none;
 }
 
@@ -101,6 +127,32 @@ button:disabled {
 
 section {
   animation: soft-rise 380ms ease both;
+}
+
+table th {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+table td {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  p,
+  li,
+  label,
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 0.9rem;
+  }
+
+  section {
+    border-radius: 1rem;
+  }
 }
 
 @keyframes soft-rise {

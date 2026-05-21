@@ -479,8 +479,11 @@ export default function Home() {
         <h1 className="mt-2 text-4xl font-semibold text-zinc-900 sm:text-5xl">
           Guided Decision Builder
         </h1>
-        <p className="mt-2 text-zinc-600">
+        <p className="mt-2 text-zinc-600 sm:text-[1.02rem]">
           Step {step + 1} of {STEP_TITLES.length}: {STEP_TITLES[step]}
+        </p>
+        <p className="mt-1 text-sm text-zinc-500">
+          Structure your decision with values, constraints, and uncertainty before acting.
         </p>
         <div className="mt-4 h-2 rounded-full bg-zinc-200">
           <div
@@ -540,7 +543,9 @@ export default function Home() {
           >
             Export Markdown
           </button>
-          <p className="text-sm text-zinc-600">Draft ID: {draftId}</p>
+          <p className="text-sm text-zinc-600">
+            Draft ID: <span className="font-mono text-[0.78rem]">{draftId}</span>
+          </p>
           {storageMessage && (
             <p className="text-sm font-medium text-emerald-700">{storageMessage}</p>
           )}
@@ -976,13 +981,13 @@ export default function Home() {
           <article className="grid gap-4 md:grid-cols-5">
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
               <p className="text-sm text-zinc-500">Status</p>
-              <p className="mt-1 text-xl font-semibold text-zinc-900">
+              <p className="mt-1 text-2xl font-semibold text-zinc-900">
                 {formatStatusLabel(result.status)}
               </p>
             </div>
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4" style={{ background: "linear-gradient(160deg, rgba(219,232,244,0.56) 0%, rgba(255,255,255,0.86) 100%)" }}>
               <p className="text-sm text-zinc-500">Adjusted Status</p>
-              <p className="mt-1 text-xl font-semibold text-zinc-900">
+              <p className="mt-1 text-2xl font-semibold text-zinc-900">
                 {formatStatusLabel(policyRecommendation.status)}
               </p>
             </div>
@@ -1012,6 +1017,9 @@ export default function Home() {
             <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-600">
               Confidence Policy Controls
             </h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Tune thresholds to define when recommendations should be strict, cautious, or conservative.
+            </p>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <label className="text-sm text-zinc-700">
                 Recommended win threshold
@@ -1054,7 +1062,9 @@ export default function Home() {
                 />
               </label>
             </div>
-            <p className="mt-3 text-sm text-zinc-600">{policyRecommendation.reason}</p>
+            <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+              {policyRecommendation.reason}
+            </p>
           </article>
 
           {simulationResult && (
